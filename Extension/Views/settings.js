@@ -1,6 +1,7 @@
 const themeSelect = document.getElementById("themeSelect");
 const fontSizeSelect = document.getElementById("fontSizeSelect");
 const showNextCodeSelect = document.getElementById("showNextCodeSelect");
+const showServiceImagesSelect = document.getElementById("showServiceImagesSelect");
 const useMasterPasswordSelect = document.getElementById("useMasterPasswordSelect");
 
 const saveBtn = document.getElementById("saveBtn");
@@ -89,6 +90,7 @@ browser.storage.local.get("settings").then(async result => {
     themeSelect.value = settings.theme;
     fontSizeSelect.value = settings.fontSize;
     showNextCodeSelect.value = settings.nextCode.toString();
+    showServiceImagesSelect.value = (settings.showServiceImages !== false).toString();
     useMasterPasswordSelect.value = settings.masterPasswordEnabled.toString();
 });
 
@@ -98,6 +100,7 @@ async function saveSettings(){
         fontSizeSelect.value,
         showNextCodeSelect.value === "true",
         useMasterPasswordSelect.value === "true",
+        showServiceImagesSelect.value === "true",
     );
 
     await browser.storage.local.set({settings : settings});

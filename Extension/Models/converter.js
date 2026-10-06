@@ -20,7 +20,8 @@ async function parse2fas(str) {
         normalizeAlgo(a.otp.algorithm) || 'SHA-1', 
         a.otp.tokenType, 
         a.otp.tokenType === 'HOTP' ? Number(a.counter) || 0 : undefined, 
-        Number(a.otp.period || a.otp.interval) || (a.type === 'hotp' ? 0 : 30)
+        Number(a.otp.period || a.otp.interval) || (a.type === 'hotp' ? 0 : 30),
+        [a.image, a.imageUrl, a.icon].find(value => typeof value === 'string')
     );
     if(a.otp.tokenType !== "STEAM"){
       accounts.push(acc);
@@ -163,7 +164,8 @@ async function parseOtpauth(uri) {
             normalizeAlgo(params.algorithm) || 'SHA-1', 
             type, 
             type === 'hotp' ? Number(params.counter) || 0 : undefined, 
-            Number(params.period || params.interval) || (type === 'hotp' ? 0 : 30)
+            Number(params.period || params.interval) || (type === 'hotp' ? 0 : 30),
+            params.image || params.imageUrl || params.icon
         );
 
         return acc;

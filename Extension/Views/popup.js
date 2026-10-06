@@ -35,6 +35,7 @@ let lastTimeSlot = [];
 let editingIndex = null;
 var password;
 var showNextCode;
+var showServiceImages;
 let draggedElement = null;
 
 // ------------------ Button Event Listeners ------------------
@@ -248,6 +249,42 @@ function getDragAfterElement(container, y) {
   }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
+function getLogoColors(initials) {
+  const backgrounds = [
+    "#2563eb",
+    "#7c3aed",
+    "#db2777",
+    "#dc2626",
+    "#ea580c",
+    "#facc15",
+    "#4ade80",
+    "#22d3ee",
+    "#f9a8d4"
+  ];
+  const hash = [...initials].reduce((value, character) => (
+    (value * 31 + character.charCodeAt(0)) >>> 0
+  ), 0);
+  const background = backgrounds[hash % backgrounds.length];
+
+  function relativeLuminance(hex) {
+    const channels = [1, 3, 5].map(offset => {
+      const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  }
+
+  const backgroundLuminance = relativeLuminance(background);
+  const whiteContrast = 1.05 / (backgroundLuminance + 0.05);
+  const darkText = "#111827";
+  const darkContrast = (backgroundLuminance + 0.05) / (relativeLuminance(darkText) + 0.05);
+
+  return {
+    background,
+    foreground: whiteContrast >= darkContrast ? "#ffffff" : darkText
+  };
+}
+
 async function renderAccounts() {
 
   accountsDiv.innerHTML = "";
@@ -297,6 +334,30 @@ async function renderAccounts() {
     const left = document.createElement("div");
     left.className = "account-left";
 
+    const logoEl = document.createElement("div");
+    logoEl.className = "account-logo";
+    const serviceName = String(acc.issuer || acc.name || acc.label || "").trim();
+    const initials = serviceName.slice(0, 2).toUpperCase();
+    const logoColors = getLogoColors(initials);
+    logoEl.textContent = initials;
+    logoEl.style.backgroundColor = logoColors.background;
+    logoEl.style.color = logoColors.foreground;
+    logoEl.setAttribute("role", "img");
+    logoEl.setAttribute("aria-label", serviceName || acc.name);
+
+    const imageUrl = typeof acc.image === "string" &&
+      (/^https?:\/\//i.test(acc.image) || /^data:image\/(?:avif|gif|jpeg|png|svg\+xml|webp);base64,/i.test(acc.image))
+      ? acc.image
+      : null;
+    if (showServiceImages && imageUrl) {
+      const imageEl = document.createElement("img");
+      imageEl.src = imageUrl;
+      imageEl.alt = "";
+      if (/^https?:\/\//i.test(imageUrl)) imageEl.referrerPolicy = "no-referrer";
+      imageEl.addEventListener("error", () => imageEl.remove());
+      logoEl.appendChild(imageEl);
+    }
+
     const right = document.createElement("div");
     right.className = "account-right";
 
@@ -314,11 +375,14 @@ async function renderAccounts() {
     const codeEl = document.createElement("div");
     codeEl.className = "code";
     
-    content.addEventListener("click", () => {
+    let copyFeedbackTimeout;
+    const copyCode = () => {
       navigator.clipboard.writeText(codeEl.textContent);
-      codeEl.style.color = "green";
-      setTimeout(() => (codeEl.style.color = ""), 500);
-    });
+      codeEl.classList.add("copied");
+      clearTimeout(copyFeedbackTimeout);
+      copyFeedbackTimeout = setTimeout(() => codeEl.classList.remove("copied"), 600);
+    };
+    left.addEventListener("click", copyCode);
 
     const nextCodeEl = document.createElement("div");
     nextCodeEl.className = "next-code";
@@ -338,6 +402,7 @@ async function renderAccounts() {
     content.appendChild(nextCodeEl);
     content.appendChild(timerEl);
 
+    left.appendChild(logoEl);
     left.appendChild(content);
 
     if(acc.type === "HOTP"){
@@ -498,6 +563,7 @@ browser.storage.session.get(["uiState"]).then(async result => {
   }
 
   showNextCode = await isShowNextCode();
+  showServiceImages = await isShowServiceImages();
 
   password = await getSessionPassword();
   accounts = await loadAccounts(password);

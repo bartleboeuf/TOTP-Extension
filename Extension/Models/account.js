@@ -9,7 +9,8 @@ class Account {
   type;
   counter;
   period;
-  constructor(name, secret, label, account, issuer, digits, algorithm, type, counter, period) {
+  image;
+  constructor(name, secret, label, account, issuer, digits, algorithm, type, counter, period, image) {
     this.name = name;
     this.secret = secret;
     this.label = label;
@@ -20,6 +21,7 @@ class Account {
     this.type = type;
     this.counter = counter;
     this.period = period;
+    this.image = image;
   }
 }
 

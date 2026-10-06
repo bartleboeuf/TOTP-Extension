@@ -37,6 +37,17 @@ describe('Account Model & Storage', () => {
   });
 
   describe('Account Storage (saveAccounts & loadAccounts)', () => {
+    it('should preserve an imported image URL without requiring host permissions', async () => {
+      const accountsList = [
+        new Account('GitHub', 'JBSWY3DPEHPK3PXP', 'GitHub:user', 'user', 'GitHub', 6, 'SHA-1', 'totp', 0, 30, 'https://example.com/logo.png')
+      ];
+
+      await saveAccounts(accountsList, null);
+      const loaded = await loadAccounts(null);
+
+      expect(loaded[0].image).toBe('https://example.com/logo.png');
+    });
+
     it('should save and load accounts without encryption when password is null', async () => {
       const accountsList = [
         new Account('Google', 'JBSWY3DPEHPK3PXP', 'Google:u', 'u', 'Google', 6, 'SHA-1', 'totp', 0, 30),
@@ -78,4 +89,3 @@ describe('Account Model & Storage', () => {
     });
   });
 });
-

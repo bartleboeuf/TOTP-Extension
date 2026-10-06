@@ -95,7 +95,7 @@ function stopCamera() {
   video.srcObject = null;
 }
 
-function scanQRCode() {
+async function scanQRCode() {
   if (!scanning) return;
   
   const ctx = canvas.getContext('2d');
@@ -110,8 +110,8 @@ function scanQRCode() {
     if (typeof jsQR !== 'undefined') {
       const code = jsQR(imageData.data, imageData.width, imageData.height);
       if (code && code.data) {
-        processQRCode(code.data);
-        window.close();
+        stopCamera();
+        await processQRCode(code.data);
         return;
       }
     }
@@ -161,7 +161,8 @@ fileInput.addEventListener('change', async (e) => {
                 reader.readAsDataURL(file);
               });
 
-              processQRCode(qrResult);
+              await processQRCode(qrResult);
+              return;
 
             } catch (err) {
               console.error('Error parsing the picture:', err);
@@ -172,14 +173,12 @@ fileInput.addEventListener('change', async (e) => {
       alert(browser.i18n.getMessage("importFailedText") + err.message);
   }
   if(accs && accs.length && qrResult === undefined){
-      console.log("Saving accs");
-      accounts.push(...accs);
-      await saveAccounts(accounts, password);
-      alert(browser.i18n.getMessage("importSuccessfullText").replace("\"{accs.length}\"", accs.length));
-      window.close();
-  }else{
+      await finishImport(accs);
+  }else if (accs) {
     console.log(accs);
     console.log(accs.length);
+  } else {
+    console.warn("No importable accounts were found in the selected file.");
   }
 });
 
@@ -202,9 +201,14 @@ async function processQRCode(qrResult) {
   }
 
   if(accs && accs.length){
-      accounts.push(...accs);
-      await saveAccounts(accounts, password);
-      alert(browser.i18n.getMessage("importSuccessfullText").replace("\"{accs.length}\"", accs.length));
-      window.close();
+      await finishImport(accs);
   }
+}
+
+async function finishImport(importedAccounts) {
+  const updatedAccounts = [...accounts, ...importedAccounts];
+  await saveAccounts(updatedAccounts, password);
+  accounts = updatedAccounts;
+  alert(browser.i18n.getMessage("importSuccessfullText").replace("\"{accs.length}\"", importedAccounts.length));
+  window.close();
 }

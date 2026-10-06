@@ -15,6 +15,7 @@ describe('Settings Model & Preferences', () => {
       expect(s.fontSize).toBe('large');
       expect(s.nextCode).toBe(false);
       expect(s.masterPasswordEnabled).toBe(true);
+      expect(s.showServiceImages).toBe(true);
     });
   });
 
@@ -27,6 +28,7 @@ describe('Settings Model & Preferences', () => {
       expect(settings.fontSize).toBe('medium');
       expect(settings.nextCode).toBe(true);
       expect(settings.masterPasswordEnabled).toBe(false);
+      expect(settings.showServiceImages).toBe(true);
 
       const stored = await browser.storage.local.get('settings');
       expect(stored.settings.theme).toBe('default');
@@ -58,6 +60,19 @@ describe('Settings Model & Preferences', () => {
       });
     });
 
+    describe('isShowServiceImages()', () => {
+      it('should return stored preference or default to true for existing settings', async () => {
+        await browser.storage.local.set({ settings: { showServiceImages: false } });
+        expect(await isShowServiceImages()).toBe(false);
+
+        await browser.storage.local.set({ settings: { showServiceImages: true } });
+        expect(await isShowServiceImages()).toBe(true);
+
+        await browser.storage.local.set({ settings: { theme: 'dark' } });
+        expect(await isShowServiceImages()).toBe(true);
+      });
+    });
+
     describe('getFontSize()', () => {
       it('should return stored font size or default to "medium"', async () => {
         await browser.storage.local.set({ settings: { fontSize: 'small' } });
@@ -69,4 +84,3 @@ describe('Settings Model & Preferences', () => {
     });
   });
 });
-

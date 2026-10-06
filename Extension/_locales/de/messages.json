@@ -126,6 +126,9 @@
   "showNextCodeText":{
     "message": "Nächsten Code anzeigen"
   },
+  "showServiceImagesText":{
+    "message": "Dienst-Logos anzeigen und laden"
+  },
   "useMasterPasswordText":{
     "message": "Master Passwort Nutzen"
   },

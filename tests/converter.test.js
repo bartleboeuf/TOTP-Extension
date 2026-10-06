@@ -58,7 +58,7 @@ describe('Converter & Import Utilities', () => {
 
   describe('parseOtpauth()', () => {
     it('should parse standard TOTP URI correctly', async () => {
-      const uri = 'otpauth://totp/GitHub:octocat?secret=JBSWY3DPEHPK3PXP&issuer=GitHub&algorithm=SHA1&digits=6&period=30';
+      const uri = 'otpauth://totp/GitHub:octocat?secret=JBSWY3DPEHPK3PXP&issuer=GitHub&algorithm=SHA1&digits=6&period=30&image=https%3A%2F%2Fexample.com%2Fgithub.png';
       const acc = await parseOtpauth(uri);
 
       expect(acc).toBeDefined();
@@ -70,6 +70,7 @@ describe('Converter & Import Utilities', () => {
       expect(acc.algorithm).toBe('SHA-1');
       expect(acc.type).toBe('totp');
       expect(acc.period).toBe(30);
+      expect(acc.image).toBe('https://example.com/github.png');
     });
 
     it('should parse TOTP URI with custom parameters', async () => {
@@ -184,7 +185,8 @@ describe('Converter & Import Utilities', () => {
               algorithm: 'SHA1',
               tokenType: 'TOTP',
               period: 30
-            }
+            },
+            image: 'https://example.com/github.png'
           },
           {
             name: 'Steam Account',
@@ -203,6 +205,7 @@ describe('Converter & Import Utilities', () => {
       expect(accounts[0].account).toBe('octocat');
       expect(accounts[0].issuer).toBe('GitHub');
       expect(accounts[0].type).toBe('TOTP');
+      expect(accounts[0].image).toBe('https://example.com/github.png');
     });
 
     it('should parse HOTP service from 2FAS JSON with counter', async () => {
@@ -240,7 +243,8 @@ describe('Converter & Import Utilities', () => {
           digits: 6,
           algorithm: 'SHA-1',
           type: 'totp',
-          period: 30
+          period: 30,
+          image: 'https://example.com/account.png'
         }
       ]);
 
@@ -249,6 +253,7 @@ describe('Converter & Import Utilities', () => {
       expect(accounts).toHaveLength(1);
       expect(accounts[0].name).toBe('Account 1');
       expect(accounts[0].secret).toBe('JBSWY3DPEHPK3PXP');
+      expect(accounts[0].image).toBe('https://example.com/account.png');
     });
 
     it('should parse Proton Authenticator JSON format with entries', async () => {

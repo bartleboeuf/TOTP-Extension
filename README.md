@@ -4,9 +4,8 @@ This project provides a browser extension to generate TOTP´s with.
 TOTP´s can be added by scanning QR-Codes or by importing from Apps.
 
 This extension is local only. All the secrets are stored local and all the calculation of the codes is local as well.
-Scanning and processing QR-Codes happens all local on your machine.
+Scanning and processing QR-Codes also happens locally on your machine. No telemetry data is collected.
 No data ever leaves your machine!
-No telemetry data, no bullshit.
 
 ![Couldn´t display picture.](/Examples/images/Popup_view.png "View of the Popup window.")
 ![Couldn´t display picture.](/Examples/images/Edit_view.png "View of the Edit window.")

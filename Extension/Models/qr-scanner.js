@@ -60,7 +60,6 @@ function processImageForQR(img) {
         dctx.putImageData(imageData, 0, 0);
 
         if (code && code.data) {
-          console.debug('jsQR found', code);
           // optional: markiere erkannte Position
           if (code.location) {
             dctx.strokeStyle = 'red';

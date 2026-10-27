@@ -93,6 +93,23 @@ describe('Encryption & Master Password Authentication', () => {
       expect(await isMasterPassword('WrongPassword')).toBe(false);
     });
 
+    it('should change the vault password without using the stored verifier as its key', async () => {
+      const oldPassword = 'OldMasterPassword';
+      const oldRecord = await saveMasterPassword(oldPassword);
+      const oldKey = await deriveVaultKey(oldPassword, oldRecord.vaultSalt);
+      await browser.storage.local.set({ masterPasswordEnabled: true });
+      await saveAccounts([
+        new Account('Example', 'JBSWY3DPEHPK3PXP', 'Example:user', 'user', 'Example', 6, 'SHA-1', 'totp', 0, 30)
+      ], oldKey);
+
+      const newKey = await changePassword(oldKey, 'NewMasterPassword');
+      const stored = await browser.storage.local.get(['masterPassword', 'accounts']);
+
+      expect(await isMasterPassword('NewMasterPassword')).toBe(true);
+      await expect(decrypt(stored.accounts, stored.masterPassword.hash)).rejects.toThrow();
+      expect((await loadAccounts(newKey))[0].secret).toBe('JBSWY3DPEHPK3PXP');
+    });
+
     it('should return false if no master password has been configured', async () => {
       expect(await isMasterPassword('SomePassword')).toBe(false);
     });

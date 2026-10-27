@@ -16,6 +16,7 @@ describe('Settings Model & Preferences', () => {
       expect(s.nextCode).toBe(false);
       expect(s.masterPasswordEnabled).toBe(true);
       expect(s.showServiceImages).toBe(true);
+      expect(s.allowRemoteImages).toBe(false);
     });
   });
 
@@ -29,6 +30,7 @@ describe('Settings Model & Preferences', () => {
       expect(settings.nextCode).toBe(true);
       expect(settings.masterPasswordEnabled).toBe(false);
       expect(settings.showServiceImages).toBe(true);
+      expect(settings.allowRemoteImages).toBe(false);
 
       const stored = await browser.storage.local.get('settings');
       expect(stored.settings.theme).toBe('default');
@@ -36,6 +38,16 @@ describe('Settings Model & Preferences', () => {
   });
 
   describe('Preference Getters', () => {
+    it('should require explicit opt-in before loading remote images', async () => {
+      expect(await isAllowRemoteImages()).toBe(false);
+
+      await browser.storage.local.set({ settings: { allowRemoteImages: true } });
+      expect(await isAllowRemoteImages()).toBe(true);
+
+      await browser.storage.local.set({ settings: { showServiceImages: true } });
+      expect(await isAllowRemoteImages()).toBe(false);
+    });
+
     describe('isDarkMode()', () => {
       it('should return true for dark theme and false for light theme', async () => {
         await browser.storage.local.set({ settings: { theme: 'dark' } });

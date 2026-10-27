@@ -131,10 +131,8 @@ fileInput.addEventListener('change', async (e) => {
         if(file.name.toLowerCase().endsWith('.json') || file.name.toLowerCase().endsWith('.2fas')){
             if(file.name.toLowerCase().endsWith('.json')){
               accs = await parseJson(await file.text());
-              console.log('Parsed accounts from JSON file:', accs);
             }else{
               accs = await parse2fas(await file.text());
-              console.log('Parsed accounts from 2FAS file:', accs);
             }
         }else{
             // Scann QR code from image and parse to Account object
@@ -174,9 +172,6 @@ fileInput.addEventListener('change', async (e) => {
   }
   if(accs && accs.length && qrResult === undefined){
       await finishImport(accs);
-  }else if (accs) {
-    console.log(accs);
-    console.log(accs.length);
   } else {
     console.warn("No importable accounts were found in the selected file.");
   }
@@ -186,18 +181,14 @@ fileInput.addEventListener('change', async (e) => {
 async function processQRCode(qrResult) {
   var accs;
   if(qrResult.startsWith('otpauth://')){
-    console.log('Parsing otpauth URI from QR code:', qrResult);
     accs = [];
     accs.push(await parseOtpauth(qrResult));
-    console.log('Parsed account from otpauth URI:', accs);
   }
   else if(qrResult.startsWith('otpauth-migration://')){
-    console.log('Parsing Google Authenticator Migration QR code:', qrResult);
     accs = parseGoogleAuth(qrResult);
-    console.log('Parsed account from Google Authenticator Migration URI:', accs);
   }
   else{
-    console.log('QR code does not contain valid content', qrResult);
+    console.warn("QR code does not contain valid content");
   }
 
   if(accs && accs.length){

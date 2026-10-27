@@ -27,6 +27,8 @@ Just add the Browser extension using the links above.
 
 On the first start you are asked to set a new master password. To diable the master password, just leave the field empty.
 
+After upgrading an existing installation, the first successful master-password unlock migrates the account vault to password-derived encryption. Until this migration completes, the previous vault format remains in local storage. Remote service images are not loaded unless explicitly enabled in Settings.
+
 **Language:** Currently available: English (default), German.
 The default language provided by your browser is used. There is no way to manually change the language from the extension.
 

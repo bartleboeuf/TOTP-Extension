@@ -127,7 +127,10 @@
     "message": "Show next Code"
   },
   "showServiceImagesText":{
-    "message": "Show and load service logos"
+    "message": "Show service logos"
+  },
+  "allowRemoteImagesText":{
+    "message": "Allow loading images from the internet"
   },
   "useMasterPasswordText":{
     "message": "Use Masterpassword"

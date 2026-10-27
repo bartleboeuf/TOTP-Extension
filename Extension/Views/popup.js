@@ -36,6 +36,7 @@ let editingIndex = null;
 var password;
 var showNextCode;
 var showServiceImages;
+var allowRemoteImages;
 let draggedElement = null;
 
 // ------------------ Button Event Listeners ------------------
@@ -364,11 +365,14 @@ async function renderAccounts() {
     logoEl.setAttribute("role", "img");
     logoEl.setAttribute("aria-label", serviceName || acc.name);
 
-    const imageUrl = typeof acc.image === "string" &&
-      (/^https?:\/\//i.test(acc.image) || /^data:image\/(?:avif|gif|jpeg|png|svg\+xml|webp);base64,/i.test(acc.image))
+    const isDataImage = typeof acc.image === "string" &&
+      /^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(acc.image);
+    const isRemoteImage = allowRemoteImages && typeof acc.image === "string" &&
+      /^https?:\/\//i.test(acc.image);
+    const imageUrl = showServiceImages && (isDataImage || isRemoteImage)
       ? acc.image
       : null;
-    if (showServiceImages && imageUrl) {
+    if (imageUrl) {
       const imageEl = document.createElement("img");
       imageEl.src = imageUrl;
       imageEl.alt = "";
@@ -520,9 +524,8 @@ function saveUIState() {
     editingIndex,
     draft: isAddView
       ? {
-          name: nameInput.value,
-          secret: secretInput.value,
-          digits: digitsInput.value,
+        name: nameInput.value,
+        digits: digitsInput.value,
           algorithm: algorithmInput.value,
           period: periodInput.value
         }
@@ -539,7 +542,7 @@ function restoreUIState(state) {
 
     if (state.draft) {
       nameInput.value = state.draft.name || "";
-      secretInput.value = state.draft.secret || "";
+      secretInput.value = "";
       digitsInput.value = state.draft.digits || 6;
       algorithmInput.value = state.draft.algorithm || "SHA-1";
       periodInput.value = state.draft.period || 30;
@@ -583,6 +586,7 @@ browser.storage.session.get(["uiState"]).then(async result => {
 
   showNextCode = await isShowNextCode();
   showServiceImages = await isShowServiceImages();
+  allowRemoteImages = await isAllowRemoteImages();
 
   password = await getSessionPassword();
   accounts = await loadAccounts(password);

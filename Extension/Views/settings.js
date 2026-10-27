@@ -2,6 +2,7 @@ const themeSelect = document.getElementById("themeSelect");
 const fontSizeSelect = document.getElementById("fontSizeSelect");
 const showNextCodeSelect = document.getElementById("showNextCodeSelect");
 const showServiceImagesSelect = document.getElementById("showServiceImagesSelect");
+const allowRemoteImagesSelect = document.getElementById("allowRemoteImagesSelect");
 const useMasterPasswordSelect = document.getElementById("useMasterPasswordSelect");
 
 const saveBtn = document.getElementById("saveBtn");
@@ -42,9 +43,10 @@ document.querySelectorAll('[data-i18n]').forEach(el => {
 });
 
 changePwBtn.addEventListener('click', async () => {
-    var oldPW = getSessionPassword();
+    const oldKey = await getSessionPassword();
     var newPW = prompt(browser.i18n.getMessage('enterNewPasswordText'));
-    await changePassword(oldPW, newPW);
+    if (!newPW) return;
+    await changePassword(oldKey, newPW);
 });
 
 useMasterPasswordSelect.addEventListener('change', () => {
@@ -91,6 +93,7 @@ browser.storage.local.get("settings").then(async result => {
     fontSizeSelect.value = settings.fontSize;
     showNextCodeSelect.value = settings.nextCode.toString();
     showServiceImagesSelect.value = (settings.showServiceImages !== false).toString();
+    allowRemoteImagesSelect.value = (settings.allowRemoteImages === true).toString();
     useMasterPasswordSelect.value = settings.masterPasswordEnabled.toString();
 });
 
@@ -101,9 +104,8 @@ async function saveSettings(){
         showNextCodeSelect.value === "true",
         useMasterPasswordSelect.value === "true",
         showServiceImagesSelect.value === "true",
+        allowRemoteImagesSelect.value === "true",
     );
-
-    await browser.storage.local.set({settings : settings});
 
     if(await isDarkMode()){
         document.body.classList.add("dark");   // Dark
@@ -129,24 +131,21 @@ async function saveSettings(){
     if(useMasterPasswordChanged){
         var result = await browser.storage.local.get("masterPasswordEnabled");
         if(settings.masterPasswordEnabled && !result.masterPasswordEnabled){ // Masterpassword got  activated
-            var password;
-            do{
-                password = prompt(browser.i18n.getMessage('enterNewPasswordText'));
-            } while (!password);
-            await changePassword(undefined, password);
-            await browser.storage.local.set({ masterPasswordEnabled: true });
+            const password = prompt(browser.i18n.getMessage('enterNewPasswordText'));
+            if(password){
+                await changePassword(undefined, password);
+            }else{
+                settings.masterPasswordEnabled = false;
+                useMasterPasswordSelect.value = "false";
+            }
         }else{ // Masterpassword got deactivated
-
-            var password = await getSessionPassword();
-
-            await browser.storage.local.set({ masterPasswordEnabled: false });
-            
-            browser.storage.local.get("accounts").then(async accounts => {
-                if(accounts.accounts){
-                    var accs = await loadAccounts(password);
-                    await saveAccounts(accs, undefined);
-                }
-            });
+            const sessionKey = await getSessionPassword();
+            const accounts = await loadAccounts(sessionKey);
+            await browser.storage.local.set({ accounts, masterPasswordEnabled: false });
+            await browser.storage.local.remove("masterPassword");
+            await browser.storage.session.remove(["isAuthenticated", "sessionKey", "sessionPassword"]);
         }
     }
+
+    await browser.storage.local.set({settings});
 }

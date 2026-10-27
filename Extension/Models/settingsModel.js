@@ -4,12 +4,14 @@ class Settings{
     nextCode;
     masterPasswordEnabled;
     showServiceImages;
-    constructor(theme, fontSize, nextCode, masterPasswordEnabled, showServiceImages = true){
+    allowRemoteImages;
+    constructor(theme, fontSize, nextCode, masterPasswordEnabled, showServiceImages = true, allowRemoteImages = false){
         this.theme = theme;
         this.fontSize = fontSize;
         this.nextCode = nextCode;
         this.masterPasswordEnabled = masterPasswordEnabled;
         this.showServiceImages = showServiceImages;
+        this.allowRemoteImages = allowRemoteImages;
     }
 }
 
@@ -26,6 +28,7 @@ async function createDefaultSettings(){
         true,
         result.masterPasswordEnabled,
         true,
+        false,
     );
 
     await browser.storage.local.set({settings: settings});
@@ -53,6 +56,11 @@ async function isShowNextCode(){
 async function isShowServiceImages(){
     var result = await browser.storage.local.get("settings");
     return !result.settings || result.settings.showServiceImages !== false;
+}
+
+async function isAllowRemoteImages(){
+    var result = await browser.storage.local.get("settings");
+    return !!(result.settings && result.settings.allowRemoteImages === true);
 }
 
 async function getFontSize(){

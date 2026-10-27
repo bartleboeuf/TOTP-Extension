@@ -78,7 +78,6 @@ async function decryptEncrypted2fas(str, password) {
       );
 
       const decodedText = new TextDecoder().decode(decrypted);
-      console.log(decodedText);
       return JSON.parse(decodedText);
 
   } catch(err) {
@@ -328,7 +327,6 @@ function parseOtpauthMigration(b64data) {
             30
         );
 
-        console.log(accSingle);
         accounts.push(accSingle);
       } else {
         // skip other fields

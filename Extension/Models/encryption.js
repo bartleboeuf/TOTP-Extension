@@ -1,6 +1,5 @@
 async function encrypt(text, password) {
-    const enc = new TextEncoder();
-
+  const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     enc.encode(password),
@@ -10,11 +9,10 @@ async function encrypt(text, password) {
   );
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
-
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: salt,
+      salt,
       iterations: 100000,
       hash: "SHA-256"
     },
@@ -25,14 +23,14 @@ async function encrypt(text, password) {
   );
 
   const iv = crypto.getRandomValues(new Uint8Array(12));
-
   const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: iv },
+    { name: "AES-GCM", iv },
     key,
     enc.encode(text)
   );
 
   return {
+    version: 2,
     encrypted: Array.from(new Uint8Array(encrypted)),
     iv: Array.from(iv),
     salt: Array.from(salt)
@@ -43,7 +41,6 @@ async function decrypt(encryptedData, password) {
   const dec = new TextDecoder();
   const enc = new TextEncoder();
   const { encrypted, iv, salt } = encryptedData;
-
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     enc.encode(password),
@@ -64,204 +61,189 @@ async function decrypt(encryptedData, password) {
     ["decrypt"]
   );
   const decrypted = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: new Uint8Array(iv)
-    },
+    { name: "AES-GCM", iv: new Uint8Array(iv) },
     key,
     new Uint8Array(encrypted)
   );
   return dec.decode(decrypted);
 }
 
-async function hash(password){
-  const encoder = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  console.log(salt);
+function bytesToHex(bytes) {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex) {
+  if (typeof hex !== "string" || hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) {
+    throw new Error("Invalid cryptographic salt");
+  }
+  return new Uint8Array(hex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+}
+
+async function derivePasswordHash(password, salt) {
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(password),
+    new TextEncoder().encode(password),
     { name: "PBKDF2" },
     false,
     ["deriveBits"]
   );
-
   const derivedBits = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
-      salt: salt,
+      salt,
       iterations: 100000,
       hash: "SHA-512"
     },
     key,
     512
   );
+  return bytesToHex(new Uint8Array(derivedBits));
+}
 
-  const hashArray = Array.from(new Uint8Array(derivedBits));
-
-  const hash = hashArray
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  const saltHex = Array.from(salt)
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-
+async function hash(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
   return {
-    salt: saltHex,
-    hash: hash
+    salt: bytesToHex(salt),
+    hash: await derivePasswordHash(password, salt)
   };
 }
 
-//---------------------------------------- PasswordAndSessionLogic --------------------------------------
-//Saved Value: (local) masterPassword
-//             (local) masterPasswordEnabled (boolean)
-//           (session) sessionPassword (string, not encrypted, only for current session)
-//             (local) isInitialized (boolean, to check if the extension is used for the first time)
-//           (session) isAuthenticated (boolean, to check if the user is authenticated for the current session)
-
-async function saveMasterPassword(password) {
-  if(!password){
-    return;
-  }
-  var output = await hash(password);
-  await browser.storage.local.set({ masterPassword: output });
-  console.log("Master password saved");
-}
-
-async function setMasterPassword(){
-  console.log("Setting master password...");
-
-  const password = await setPassword();
-
-  if(!password){
-    await browser.storage.local.set({ masterPasswordEnabled: false });
-    console.log("Master password disabled");
-    return;
-  }
-  await saveMasterPassword(password);
-  var hash = await browser.storage.local.get("masterPassword");
-  await browser.storage.local.set({ masterPasswordEnabled: true });
-  await browser.storage.session.set({ isAuthenticated: true });
-  await browser.storage.session.set({ sessionPassword: hash.masterPassword });
-  console.log("Master password set", password, hash.masterPassword);
-  return hash.masterPassword;
-}
-
-async function isMasterPassword(password) {
-  var input = await browser.storage.local.get("masterPassword");
-  
-  if(!password || !input.masterPassword){
-    console.log("No master password set");
-    return false;
-  }
-
-  var storedHash = input.masterPassword.hash;
-  var saltHex = input.masterPassword.salt;
-
-  const encoder = new TextEncoder();
-
-  const salt = new Uint8Array(
-    saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
-  );
-  console.log(salt);
+async function deriveVaultKey(password, vaultSalt) {
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(password),
+    new TextEncoder().encode(password),
     { name: "PBKDF2" },
     false,
     ["deriveBits"]
   );
-
   const derivedBits = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
-      salt: salt,
+      salt: hexToBytes(vaultSalt),
       iterations: 100000,
-      hash: "SHA-512"
+      hash: "SHA-256"
     },
     key,
-    512
+    256
   );
-
-  const hashArray = Array.from(new Uint8Array(derivedBits));
-  const hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-  console.log(hash, storedHash);
-  return hash === storedHash;
+  return bytesToHex(new Uint8Array(derivedBits));
 }
 
-async function getSessionPassword(){
-  var password;
+function createVaultSalt() {
+  return bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+}
 
-  console.log("Getting session password...");
+async function createMasterPasswordRecord(password) {
+  if (!password) {
+    throw new Error("A non-empty master password is required");
+  }
 
-  var result = await browser.storage.local.get(["isInitialized"]);
+  return {
+    ...(await hash(password)),
+    vaultSalt: createVaultSalt()
+  };
+}
 
-  if(!result.isInitialized){ // First time use, not yet initialized
-    console.log("initializing")
-    password = await setMasterPassword();
-    browser.storage.local.set({ isInitialized: true });
+async function saveMasterPassword(password) {
+  const passwordRecord = await createMasterPasswordRecord(password);
+  await browser.storage.local.set({ masterPassword: passwordRecord });
+  return passwordRecord;
+}
 
-    var accounts = browser.storage.local.get("accounts");
-    if(accounts.accounts){ // Allready accounts saved from previous version
-      await saveAccounts(accounts.accounts, password);
+async function setMasterPassword() {
+  const password = await setPassword();
+  if (!password) {
+    await browser.storage.local.set({ masterPasswordEnabled: false });
+    await browser.storage.local.remove("masterPassword");
+    await browser.storage.session.remove(["isAuthenticated", "sessionKey", "sessionPassword"]);
+    return undefined;
+  }
+
+  const passwordRecord = await createMasterPasswordRecord(password);
+  const sessionKey = await deriveVaultKey(password, passwordRecord.vaultSalt);
+  const { accounts } = await browser.storage.local.get("accounts");
+  const updates = {
+    masterPassword: passwordRecord,
+    masterPasswordEnabled: true
+  };
+  if (Array.isArray(accounts)) {
+    updates.accounts = await encrypt(JSON.stringify(accounts), sessionKey);
+  }
+  await browser.storage.local.set(updates);
+  await browser.storage.session.set({ isAuthenticated: true, sessionKey });
+  return sessionKey;
+}
+
+async function isMasterPassword(password) {
+  const { masterPassword } = await browser.storage.local.get("masterPassword");
+  if (!password || !masterPassword || !masterPassword.hash || !masterPassword.salt) {
+    return false;
+  }
+
+  const derivedHash = await derivePasswordHash(password, hexToBytes(masterPassword.salt));
+  return derivedHash === masterPassword.hash;
+}
+
+async function getSessionPassword() {
+  const { isInitialized } = await browser.storage.local.get("isInitialized");
+
+  if (!isInitialized) {
+    const sessionKey = await setMasterPassword();
+    await browser.storage.local.set({ isInitialized: true });
+    return sessionKey;
+  }
+
+  const { masterPasswordEnabled } = await browser.storage.local.get("masterPasswordEnabled");
+  if (!masterPasswordEnabled) {
+    return undefined;
+  }
+
+  const session = await browser.storage.session.get(["isAuthenticated", "sessionKey"]);
+  if (session.isAuthenticated && session.sessionKey) {
+    return session.sessionKey;
+  }
+
+  let password;
+  while (true) {
+    password = await setPassword();
+    if (await isMasterPassword(password)) {
+      break;
     }
   }
 
-  console.log("already initialized");
-
-  var masterPWEnabled = await browser.storage.local.get("masterPasswordEnabled");
-
-
-  if(!masterPWEnabled.masterPasswordEnabled){ //Is initialized, but master password is disabled
-    console.log("master password disabled");
-    return password;
+  const { masterPassword } = await browser.storage.local.get("masterPassword");
+  if (!masterPassword.vaultSalt) {
+    masterPassword.vaultSalt = createVaultSalt();
+    await browser.storage.local.set({ masterPassword });
   }
 
-  result = await browser.storage.session.get("isAuthenticated");
-
-  if(!result.isAuthenticated){ // Is initialized, masterpassword enabled, but not yet authenticated
-    console.log("not authenticated yet");
-    do{
-      password = await setPassword();
-    } while (!await isMasterPassword(password))
-
-    await browser.storage.session.set({ isAuthenticated: true });
-    var hashedPW = await browser.storage.local.get("masterPassword");
-    await browser.storage.session.set({ sessionPassword: hashedPW.masterPassword });
-
-    console.log("authenticated", password);
-
-    return hashedPW.masterPassword;
-  }
-
-  // Is initialized and master password is enabled and already authenticated
-
-  password = await browser.storage.session.get("sessionPassword");
-
-  return password.sessionPassword;
-
+  const sessionKey = await deriveVaultKey(password, masterPassword.vaultSalt);
+  await loadAccounts(sessionKey);
+  await browser.storage.session.set({ isAuthenticated: true, sessionKey });
+  return sessionKey;
 }
 
-async function changePassword(oldPW, newPW){
-
-  var accounts = await browser.storage.local.get("accounts");
-  var masterPW;
-
-  if(accounts.accounts){ // Allready accounts saved from previous version
-    try{
-      accounts = await loadAccounts(oldPW);
-    }catch{
-      accounts = [];
-    }
-
-    await saveMasterPassword(newPW);
-    masterPW = await browser.storage.local.get("masterPassword");
-    await saveAccounts(accounts, masterPW.masterPassword);
+async function changePassword(oldKey, newPassword) {
+  if (!newPassword) {
+    throw new Error("A non-empty master password is required");
   }
 
-  masterPW = await browser.storage.local.get("masterPassword");
+  const { accounts } = await browser.storage.local.get("accounts");
+  const decryptedAccounts = accounts
+    ? await loadAccounts(oldKey)
+    : [];
+  const passwordRecord = await createMasterPasswordRecord(newPassword);
+  const sessionKey = await deriveVaultKey(newPassword, passwordRecord.vaultSalt);
 
-  await browser.storage.session.set({ isAuthenticated: true });
-  await browser.storage.session.set({ sessionPassword: masterPW.masterPassword});
+  const updates = {
+    masterPassword: passwordRecord,
+    masterPasswordEnabled: true
+  };
+  if (accounts) {
+    updates.accounts = await encrypt(JSON.stringify(decryptedAccounts), sessionKey);
+  }
+  await browser.storage.local.set(updates);
+  await browser.storage.session.set({ isAuthenticated: true, sessionKey });
+  await browser.storage.session.remove("sessionPassword");
+  return sessionKey;
 }
